@@ -1,26 +1,53 @@
-import IO from 'fp-ts/lib/IO';
-import { pipe } from 'fp-ts/lib/function';
-import { Shark } from '../api/shark';
+import * as A from 'fp-ts/Array';
+import O from 'fp-ts/Option';
+import Ord from 'fp-ts/Ord';
+import { pipe } from 'fp-ts/function';
+import N from 'fp-ts/number';
+import { SharkHealthStatus } from '../api';
 import { sharkSettings } from '../config';
-import { getAngleToPoint } from '../utility/math';
-import { SharkKnowledge } from './types';
+import { getDistanceBetweenPoints } from '../utility/math';
+import { EnemyShark, Situation } from './types';
 
-export const doNothing: IO.IO<void> = () => {};
+export const sharkHealthSeverity: Record<SharkHealthStatus, number> = {
+    healthy: 0,
+    crippled: 1,
+    immobilized: 2,
+};
 
-export const goForward = (shark: Shark): IO.IO<void> =>
-    () => shark.setFinSpeed(sharkSettings.forwardSpeed, sharkSettings.forwardSpeed);
+const getByClosestOrd = (situation: Situation) =>
+    pipe(
+        N.Ord,
+        Ord.contramap((enemy: EnemyShark) => getDistanceBetweenPoints(situation.position)(enemy.position)),
+    );
 
-export const stop = (shark: Shark): IO.IO<void> =>
-    () => shark.setFinSpeed(0, 0);
+export const getClosestEnemy = (situation: Situation) =>
+    pipe(
+        situation.recentlyScannedEnemies,
+        pipe(
+            situation,
+            getByClosestOrd,
+            A.sort
+        ),
+        A.head,
+    );
 
-export const turn = (shark: Shark) => (direction: 'port' | 'starboard'): IO.IO<void> =>
-    direction === 'port'
-        ? () => shark.setFinSpeed(-sharkSettings.turnSpeed, sharkSettings.turnSpeed)
-        : () => shark.setFinSpeed(sharkSettings.turnSpeed, -sharkSettings.turnSpeed);
-
-export const narrowScanCenter = ({ shark, situation }: SharkKnowledge): IO.IO<void> =>
+export const getTorpedoableEnemy = (situation: Situation) =>
     pipe(
         situation,
-        ({ arenaSettings, position }) => getAngleToPoint([arenaSettings.dimensions.width / 2, arenaSettings.dimensions.height / 2])(position),
-        angle => () => shark.performNarrowScan(angle)
+        getClosestEnemy,
+        O.filter(closest => getDistanceBetweenPoints(situation.position)(closest.position) <= sharkSettings.maxTorpedoDistance),
+    );
+
+const byNearestToDeath =
+    pipe(
+        N.Ord,
+        Ord.contramap((enemy: EnemyShark) => sharkHealthSeverity[enemy.healthStatus]),
+        Ord.reverse,
+    );
+
+export const getEnemyNearestToDeath = (situation: Situation) =>
+    pipe(
+        situation.recentlyScannedEnemies,
+        A.sort(byNearestToDeath),
+        A.head,
     );

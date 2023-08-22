@@ -6,49 +6,45 @@ import { flow, pipe } from 'fp-ts/function';
 import N from 'fp-ts/number';
 import { SharkHealthStatus } from '../api';
 import { sharkSettings } from '../config';
+import { getEnemyNearestToDeath, getTorpedoableEnemy, sharkHealthSeverity } from './shared';
 import { EnemyShark, ManeuverName, SharkThink, Situation, defaultManeuver } from './types';
 
-const enemyNearestToDeath = (enemies: EnemyShark[]): O.Option<EnemyShark> => {
-    const findEnemy = (healthStatus: SharkHealthStatus) => pipe(
-        enemies.find(enemy => enemy.healthStatus === healthStatus),
-        O.fromNullable);
+const enemyIsAtLeast = (status: SharkHealthStatus) =>
+    O.filter((shark: EnemyShark) => sharkHealthSeverity[shark.healthStatus] >= sharkHealthSeverity[status])
 
-    return pipe(
-        findEnemy('immobilized'),
-        O.alt(() => findEnemy('crippled')),
-        O.alt(() => findEnemy('healthy'))
-    );
-};
-
-const enemyNearestToDeathIsNot = (status: SharkHealthStatus) => (situation: Situation) =>
+const enemyNearestToDeathIsAtLeast = (status: SharkHealthStatus) => (situation: Situation) =>
     pipe(
-        enemyNearestToDeath(situation.recentlyScannedEnemies),
-        O.match(() => false, shark => shark.healthStatus !== status)
+        getEnemyNearestToDeath(situation),
+        enemyIsAtLeast(status)
+    );
+
+const torpedoableEnemyIsAtLeast = (status: SharkHealthStatus) => (situation: Situation) =>
+    pipe(
+        getTorpedoableEnemy(situation),
+        enemyIsAtLeast(status)
     );
 
 const maneuverConditions: Record<ManeuverName, (situation: Situation) => boolean> = {
     camp: () => true,
 
-    evade: situation => situation.health < 200,
-
-    stealthEvade: situation => situation.health < 300,
+    stealthCamp: situation => situation.health < 300,
 
     laserAttack: flow(
-        O.fromPredicate(situation => situation.energy < 25),
-        O.map(enemyNearestToDeathIsNot('healthy')),
-        O.getOrElse(() => false)
+        O.fromPredicate(situation => situation.energy <= 25),
+        O.map(enemyNearestToDeathIsAtLeast('immobilized')),
+        O.match(() => false, () => true)
     ),
 
     torpedoAttack: flow(
         O.fromPredicate(situation => situation.torpedoes > 0),
-        O.map(enemyNearestToDeathIsNot('healthy')),
-        O.getOrElse(() => false)
+        O.map(torpedoableEnemyIsAtLeast('crippled')),
+        O.match(() => false, () => true)
     ),
 
     finishHim: flow(
         O.fromPredicate(situation => situation.torpedoes > 1),
-        O.map(enemyNearestToDeathIsNot('immobilized')),
-        O.getOrElse(() => false)
+        O.map(torpedoableEnemyIsAtLeast('healthy')),
+        O.match(() => false, () => true)
     ),
 };
 

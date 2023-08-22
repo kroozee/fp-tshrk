@@ -8,7 +8,9 @@ import { baseUrl } from './config';
 const main = pipe(
     () => io(baseUrl),
     tap(socket => () => {
+        console.log('connecting...');
         socket.on('connect', () => console.log('connected!!!!'));
+        socket.on('error', (e) => console.log('e!!!!', e));
         socket.connect();
     }),
     map(createApi),

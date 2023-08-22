@@ -1,12 +1,12 @@
 import { ReaderObservable } from 'fp-ts-rxjs/ReaderObservable';
 import { IO } from 'fp-ts/IO';
+import { ReaderIO } from 'fp-ts/ReaderIO';
 import { Observable } from 'rxjs';
 import { Api, ArenaSettings, SharkHealthStatus, Velocity } from '../api';
 
 export type ManeuverName =
     | 'camp'
-    | 'evade'
-    | 'stealthEvade'
+    | 'stealthCamp'
     | 'laserAttack'
     | 'torpedoAttack'
     | 'finishHim';
@@ -39,6 +39,6 @@ export type BabySharkKnowledge = Omit<SharkKnowledge, 'situation'>;
 
 export type SharkSee = (knowledge: SharkKnowledge | BabySharkKnowledge) => Observable<Situation>;
 export type SharkThink = (situation: Situation) => ManeuverName;
-export type SharkDo = (knowledge: SharkKnowledge) => IO<void>;
+export type SharkDo = ReaderIO<SharkKnowledge, void>;
 
 export type SharkBrain =  ReaderObservable<BabySharkKnowledge, IO<void>>;

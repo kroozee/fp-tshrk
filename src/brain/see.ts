@@ -7,7 +7,8 @@ import { combineLatest } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Angle, ArenaSettings, BeatUpdate, NarrowScanExecutedEvent, ScannedShark, WideScanExecutedEvent } from '../api';
 import { sharkSettings } from '../config';
-import { doNothing, narrowScanCenter } from './shared';
+import { doNothing } from '../utility/io';
+import { getAngleToPoint } from '../utility/math';
 import { EnemyShark, ManeuverName, SharkKnowledge, SharkSee, Situation } from './types';
 
 export type ScanResult = NarrowScanExecutedEvent | WideScanExecutedEvent;
@@ -53,10 +54,16 @@ const createSituation = ([update, arenaSettings]: [BeatUpdate, ArenaSettings]): 
 type Scan = (knowledge: SharkKnowledge) => IO.IO<void>;
 const unimplemented: Scan = () => doNothing;
 
+const narrowScanCenter = ({ shark, situation }: SharkKnowledge): IO.IO<void> =>
+    pipe(
+        situation,
+        ({ arenaSettings, position }) => getAngleToPoint([arenaSettings.dimensions.width / 2, arenaSettings.dimensions.height / 2])(position),
+        angle => () => shark.performNarrowScan(angle)
+    );
+
 const scanRules: Record<ManeuverName, Scan> = {
     camp: narrowScanCenter,
-    evade: unimplemented,
-    stealthEvade: unimplemented,
+    stealthCamp: unimplemented,
     laserAttack: unimplemented,
     torpedoAttack: unimplemented,
     finishHim: unimplemented,
@@ -67,7 +74,7 @@ const getScanForSituation = (knowledge: SharkKnowledge) =>
 
 const scan = flow(
     O.some<SharkKnowledge>,
-    O.filter(({ situation }: SharkKnowledge) => situation.energy > sharkSettings.minimumEnergyToScan),
+    O.filter(({ situation }: SharkKnowledge) => situation.energy > sharkSettings.minEnergyToScan),
     O.map(getScanForSituation),
     O.getOrElse(() => doNothing)
 );

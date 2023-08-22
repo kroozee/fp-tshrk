@@ -3,7 +3,6 @@
 @sharkId = 0000-000D
 @arenaId = 8QY-4XY-YYYG
 
-
 ###
 
 POST {{host}}/arena/create
