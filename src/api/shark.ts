@@ -1,7 +1,6 @@
 import { IO } from 'fp-ts/IO';
-import { Subject } from 'rxjs';
 import { Socket } from 'socket.io-client';
-import { Angle, ArenaId, ClientToServerEvents, CommandUpdate, ServerToClientEvents, SharkId, SharkMode } from './gameplay';
+import { Angle, ArenaId, ClientToServerEvents, ServerToClientEvents, SharkId, SharkMode } from './gameplay';
 
 export type Shark = {
     takeControl: IO<void>,
@@ -64,71 +63,4 @@ export const createShark: CreateShark = (socket, arenaId, playerId) => ({
             arenaId,
             playerId,
             ignore),
-});
-
-const createSharkOld = (socket: any, arenaId: any, playerId: any) => ({
-    takeControl: () => {
-        const updates = new Subject<CommandUpdate>();
-        socket.emit('takeControl', arenaId, playerId, updates.next);
-        return updates;
-    },
-    setFinSpeed: (portSpeed: number, starboardSpeed: number) => {
-        const updates = new Subject<CommandUpdate>();
-        socket.emit(
-            'setFinSpeed',
-            arenaId,
-            playerId,
-            portSpeed, 
-            starboardSpeed,
-            updates.next);
-            return updates;
-    },
-    setSharkMode: (mode: SharkMode) => {
-        const updates = new Subject<CommandUpdate>();
-        socket.emit(
-            'setSharkMode',
-            arenaId,
-            playerId,
-            mode,
-            updates.next);
-            return updates;
-    },
-    performWideScan: () => {
-        const updates = new Subject<CommandUpdate>();
-        socket.emit(
-            'performWideScan',
-            arenaId,
-            playerId,
-            updates.next);
-            return updates;
-    },
-    performNarrowScan: (angle: number) => {
-        const updates = new Subject<CommandUpdate>();
-        socket.emit(
-            'performNarrowScan',
-            arenaId,
-            playerId,
-            angle,
-            updates.next);
-            return updates;
-    },
-    fireTorpedo: (angle: number) => {
-        const updates = new Subject<CommandUpdate>();
-        socket.emit(
-            'fireTorpedo',
-            arenaId,
-            playerId,
-            angle,
-            updates.next);
-            return updates;
-    },
-    fireLaser: () => {
-        const updates = new Subject<CommandUpdate>();
-        socket.emit(
-            'fireLaser',
-            arenaId,
-            playerId,
-            updates.next);
-            return updates;
-    },
 });

@@ -1,5 +1,5 @@
 import { Observable, from } from 'rxjs';
-import { retry } from 'rxjs/operators';
+import { retry, share, shareReplay, tap } from 'rxjs/operators';
 import { Socket } from 'socket.io-client';
 import { arenaId, baseUrl } from '../config';
 import { ArenaSettings } from './arena';
@@ -13,18 +13,23 @@ export type Game = {
 type CreateGame = (socket: Socket<ServerToClientEvents, ClientToServerEvents>) => Game;
 
 const getArenaSettings = async () => {
+    console.log('getting arena settings.')
     const result = await fetch(`${baseUrl}/arena/${arenaId}/settings`);
     const body = await result.json();
     return body as ArenaSettings;
 }
 
 export const createGame: CreateGame = (socket) => ({
-    arenaSettings: from(getArenaSettings()).pipe(retry()),
+    arenaSettings: from(getArenaSettings()).pipe(
+        retry(),
+        tap(arenaSettings => console.log({ arenaSettings })),
+        shareReplay(1)),
     updates: new Observable<BeatUpdate>(subscribe => {
-        socket.on('beatUpdate', subscribe.next);
+        console.log('subscribing to beat updates.');
+        socket.on('beatUpdate', u => subscribe.next(u));
         return () => {
             console.log('unsubscribing from beat updates.');
-            socket.off('beatUpdate', subscribe.next);
+            socket.off('beatUpdate', u => subscribe.next(u));
         };
-    }),
+    }).pipe(tap(beatUpdate => console.log({ beatUpdate })), share()),
 });
