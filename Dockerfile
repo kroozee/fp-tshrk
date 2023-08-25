@@ -10,4 +10,4 @@ COPY . .
 
 RUN npm run build
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "--es-module-specifier-resolution=node", "dist/main.js"]
