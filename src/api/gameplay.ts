@@ -19,6 +19,8 @@ export type ScannedShark = {
     centerX: number
     centerY: number
     velocity: Velocity
+    speed: number
+    direction: Angle
     healthStatus: SharkHealthStatus
 }
 
@@ -33,8 +35,8 @@ export type SharkMode = 'attack' | 'repair' | 'stealth';
 export type SharkHealthStatus = 'healthy' | 'crippled' | 'immobilized'
 
 export type Velocity = {
-    speed: number;
-    direction: Angle;
+    speed: number
+    direction: Angle
 };
 
 export type CommandUpdate = {

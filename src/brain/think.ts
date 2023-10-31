@@ -30,20 +30,20 @@ const maneuverConditions: Record<ManeuverName, (situation: Situation) => boolean
     stealthCamp: situation => situation.health < 300,
 
     laserAttack: flow(
-        O.fromPredicate(situation => situation.energy <= 25),
-        O.map(enemyNearestToDeathIsAtLeast('immobilized')),
+        O.fromPredicate(situation => situation.energy >= 25),
+        O.flatMap(enemyNearestToDeathIsAtLeast('healthy')),
         O.match(() => false, () => true)
     ),
 
     torpedoAttack: flow(
         O.fromPredicate(situation => situation.torpedoes > 0),
-        O.map(torpedoableEnemyIsAtLeast('crippled')),
+        O.flatMap(torpedoableEnemyIsAtLeast('crippled')),
         O.match(() => false, () => true)
     ),
 
     finishHim: flow(
         O.fromPredicate(situation => situation.torpedoes > 1),
-        O.map(torpedoableEnemyIsAtLeast('healthy')),
+        O.flatMap(torpedoableEnemyIsAtLeast('healthy')),
         O.match(() => false, () => true)
     ),
 };
@@ -62,7 +62,8 @@ const getPossibleManuevers = (situation: Situation): NEA.ReadonlyNonEmptyArray<M
 
 const byPriority = pipe(
     N.Ord,
-    Ord.contramap((maneuver: ManeuverName) => sharkSettings.maneuverPriorities[maneuver])
+    Ord.contramap((maneuver: ManeuverName) => sharkSettings.maneuverPriorities[maneuver]),
+    Ord.reverse
 );
 
 export const sharkThink: SharkThink = flow(

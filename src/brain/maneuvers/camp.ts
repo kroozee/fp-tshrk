@@ -1,14 +1,17 @@
-import IO from 'fp-ts/IO';
+import R from 'fp-ts/ReaderIO';
 import { pipe } from 'fp-ts/function';
-import { doNothing } from '../../utility/io';
-import { SharkDo } from '../types';
-import { getClosestCorner, goToPoint, turnTowardsCenter } from './shared';
+import { SharkDo, SharkKnowledge } from '../types';
+import { doNothing, getClosestCorner, goToPoint, turnTowardsCenter } from './shared';
 
-export const camp: SharkDo = ({ shark, situation }) =>
+export const camp: SharkDo =
     pipe(
-        getClosestCorner(situation),
-        goToPoint(shark)(situation),
-        IO.flatMap(state => state === 'made it'
-            ? turnTowardsCenter(shark)(situation)
+        R.Do,
+        R.ask<SharkKnowledge>,
+        R.bind('moveState', ({ situation }) => pipe(
+            getClosestCorner(situation),
+            goToPoint
+        )),
+        R.tap(({ moveState }) => moveState === 'made it'
+            ? turnTowardsCenter
             : doNothing)
     );

@@ -14,20 +14,25 @@ export const sharkHealthSeverity: Record<SharkHealthStatus, number> = {
     immobilized: 2,
 };
 
-const getByClosestOrd = (situation: Situation) =>
+const getEnemies = (situation: Situation) =>
+    pipe(
+        situation.memory,
+        O.map(memory => memory.enemies),
+        O.getOrElse(() => [] as EnemyShark[])
+    );
+
+const sortEnemiesByClosest = (situation: Situation) =>
     pipe(
         N.Ord,
         Ord.contramap((enemy: EnemyShark) => getDistanceBetweenPoints(situation.position)(enemy.position)),
+        A.sort
     );
 
 export const getClosestEnemy = (situation: Situation) =>
     pipe(
-        situation.recentlyScannedEnemies,
-        pipe(
-            situation,
-            getByClosestOrd,
-            A.sort
-        ),
+        situation,
+        getEnemies,
+        sortEnemiesByClosest(situation),
         A.head,
     );
 
@@ -38,16 +43,18 @@ export const getTorpedoableEnemy = (situation: Situation) =>
         O.filter(closest => getDistanceBetweenPoints(situation.position)(closest.position) <= sharkSettings.maxTorpedoDistance),
     );
 
-const byNearestToDeath =
+const sortEnemiesByNearestToDeath =
     pipe(
         N.Ord,
         Ord.contramap((enemy: EnemyShark) => sharkHealthSeverity[enemy.healthStatus]),
         Ord.reverse,
+        A.sort,
     );
 
 export const getEnemyNearestToDeath = (situation: Situation) =>
     pipe(
-        situation.recentlyScannedEnemies,
-        A.sort(byNearestToDeath),
+        situation,
+        getEnemies,
+        sortEnemiesByNearestToDeath,
         A.head,
     );

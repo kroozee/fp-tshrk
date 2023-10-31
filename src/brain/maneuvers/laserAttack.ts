@@ -1,13 +1,15 @@
 import O from 'fp-ts/Option';
+import R from 'fp-ts/ReaderIO';
 import { pipe } from 'fp-ts/function';
-import { doNothing } from '../../utility/io';
 import { getEnemyNearestToDeath } from '../shared';
-import { SharkDo } from '../types';
-import { laserEnemy } from './shared';
+import { SharkDo, SharkKnowledge } from '../types';
+import { doNothing, laserEnemy } from './shared';
 
-export const laserAttack: SharkDo = (knowledge) =>
+export const laserAttack: SharkDo =
     pipe(
-        getEnemyNearestToDeath(knowledge.situation),
-        O.map(laserEnemy(knowledge)),
-        O.getOrElse(() => doNothing),
+        R.ask<SharkKnowledge>(),
+        R.flatMap(({ situation }) => pipe(
+            getEnemyNearestToDeath(situation),
+            O.match(() => doNothing, laserEnemy)
+        ))
     );

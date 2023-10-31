@@ -1,7 +1,6 @@
 @host = http://192.168.130.142:3000
-@playerId = 7e56febd-a3df-4680-8ff9-105136c52f19
-@sharkId = 0000-000D
-@arenaId = 1YY-5YY-YYYT
+@playerId = 514b4cc5-9382-46c6-b87c-a167fcbb8b43
+@arenaId = ETY-JYY-YYY1
 
 ###
 
@@ -13,10 +12,8 @@ Content-Type: application/json
     "countdownToStart": 24,
     "gameLength": 43200,
     "players": [
-        { "sharkName": "fp-tshrk" },
-        { "sharkName": "patrol1" },
-        { "sharkName": "patrol2" },
-        { "sharkName": "patrol3" }
+        { "sharkName": "PATROL" }, 
+        { "sharkName": "FP-TSHRK" }
     ]
 }
 

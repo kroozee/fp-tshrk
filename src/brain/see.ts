@@ -1,34 +1,49 @@
 import $ from 'fp-ts-rxjs/Observable';
 import A from 'fp-ts/Array';
-import IO from 'fp-ts/IO';
 import O from 'fp-ts/Option';
 import { flow, pipe } from 'fp-ts/function';
 import { combineLatest } from 'rxjs';
-import { tap } from 'rxjs/operators';
 import { Angle, ArenaSettings, BeatUpdate, NarrowScanExecutedEvent, ScannedShark, WideScanExecutedEvent } from '../api';
-import { sharkSettings } from '../config';
-import { doNothing } from '../utility/io';
-import { getAngleToPoint } from '../utility/math';
-import { EnemyShark, ManeuverName, SharkKnowledge, SharkSee, Situation } from './types';
+import { EnemyShark, Memory, SharkSee, Situation } from './types';
 
 export type ScanResult = NarrowScanExecutedEvent | WideScanExecutedEvent;
 
 const createEnemyShark = (scannedShark: ScannedShark): EnemyShark => ({
     position: [scannedShark.centerX, scannedShark.centerY],
-    velocity: scannedShark.velocity,
+    velocity: {
+        speed: scannedShark.speed,
+        direction: scannedShark.direction 
+    },
     healthStatus: scannedShark.healthStatus,
 });
 
+const getScanResult = (update: BeatUpdate) => 
+    pipe(
+        update.events,
+        A.findFirst(event =>
+            'event' in event
+            && (event.event === 'narrowScanExecutedEvent'
+            || event.event === 'wideScanExecutedEvent')),
+        O.map(event => event as ScanResult),
+    );
+
+
 const getScannedSharks = flow(
-    (update: BeatUpdate) => update.events,
-    A.findFirst(event =>
-        'event' in event
-        && (event.event === 'narrowScanExecutedEvent'
-        || event.event === 'wideScanExecutedEvent')),
-    O.map(event => event as ScanResult),
-    O.map(result => result.sharks.map(createEnemyShark)),
-    O.getOrElse(() => [] as EnemyShark[]),
+    getScanResult,
+    O.map(result => result.sharks),
+    O.map(A.map(createEnemyShark))
 );
+
+const createMemory = (update: BeatUpdate): O.Option<Memory> =>
+    pipe(
+        O.some((scanResult: ScanResult) => (enemies: EnemyShark[]): Memory => ({
+            beat: update.gameTime,
+            lastScanType: scanResult.event === 'narrowScanExecutedEvent' ? 'narrow' : 'wide',
+            enemies,
+        })),
+        O.ap(getScanResult(update)),
+        O.ap(getScannedSharks(update)),
+    );
 
 const createSituation = ([update, arenaSettings]: [BeatUpdate, ArenaSettings]): O.Option<Situation> =>
     pipe(
@@ -37,56 +52,26 @@ const createSituation = ([update, arenaSettings]: [BeatUpdate, ArenaSettings]): 
             ? O.some(update)
             : O.none),
         O.map(update => ({
-            currentManeuver: O.none,
+            beat: update.gameTime,
             position: [update.positionX, update.positionY],
+            facing: update.facing as Angle,
             velocity: {
                 direction: update.facing as Angle,
                 speed: (update.portFinSpeedActual + update.starboardFinSpeedActual) / 2
             },
+            portFinSpeed: update.portFinSpeedActual,
+            starboardFinSpeed: update.starboardFinSpeedActual,
             health: update.health,
             energy: update.energy,
             torpedoes: update.torpedoCount,
-            recentlyScannedEnemies: getScannedSharks(update),
+            memory: createMemory(update),
             arenaSettings,
         }))
     );
 
-type Scan = (knowledge: SharkKnowledge) => IO.IO<void>;
-const unimplemented: Scan = () => doNothing;
-
-const narrowScanCenter = ({ shark, situation }: SharkKnowledge): IO.IO<void> =>
+export const sharkSee: SharkSee = (knowledge) =>
     pipe(
-        situation,
-        ({ arenaSettings, position }) => getAngleToPoint([arenaSettings.dimensions.width / 2, arenaSettings.dimensions.height / 2])(position),
-        angle => () => shark.performNarrowScan(angle)
-    );
-
-const scanRules: Record<ManeuverName, Scan> = {
-    camp: narrowScanCenter,
-    stealthCamp: unimplemented,
-    laserAttack: unimplemented,
-    torpedoAttack: unimplemented,
-    finishHim: unimplemented,
-};
-
-const getScanForSituation = (knowledge: SharkKnowledge) =>
-    scanRules[knowledge.currentManeuver](knowledge);
-
-const scan = flow(
-    O.some<SharkKnowledge>,
-    O.filter(({ situation }: SharkKnowledge) => situation.energy > sharkSettings.minEnergyToScan),
-    O.map(getScanForSituation),
-    O.getOrElse(() => doNothing)
-);
-
-export const sharkSee: SharkSee = (knowledge) => {
-    const see = pipe(
         [knowledge.game.updates, knowledge.game.arenaSettings],
         combineLatest,
         $.filterMap(createSituation),
     );
-
-    return see.pipe(
-        tap(situation => scan({ ...knowledge, situation })())
-    );
-};

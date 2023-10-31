@@ -14,7 +14,7 @@ export type Shark = {
 
 export type CreateShark = (socket: Socket<ServerToClientEvents, ClientToServerEvents>, arenaId: ArenaId, playerId: SharkId) => Shark;
 
-const ignore = (...params: unknown[]) => {};
+const ignore = (...params: any[]) => {}; //console.log(params[0].message);
 export const createShark: CreateShark = (socket, arenaId, playerId) => ({
     takeControl: () =>
         socket.emit(

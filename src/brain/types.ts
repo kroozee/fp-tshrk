@@ -1,8 +1,9 @@
 import { ReaderObservable } from 'fp-ts-rxjs/ReaderObservable';
 import { IO } from 'fp-ts/IO';
+import { Option } from 'fp-ts/Option';
 import { ReaderIO } from 'fp-ts/ReaderIO';
 import { Observable } from 'rxjs';
-import { Api, ArenaSettings, SharkHealthStatus, Velocity } from '../api';
+import { Angle, Api, ArenaSettings, SharkHealthStatus, Velocity } from '../api';
 
 export type ManeuverName =
     | 'camp'
@@ -19,13 +20,26 @@ export type EnemyShark = {
     healthStatus: SharkHealthStatus
 };
 
+/**
+ * Stuff from scans the shark should remember until the next scan.
+ */
+export type Memory = {
+    beat: number
+    lastScanType: 'narrow' | 'wide'
+    enemies: EnemyShark[]
+};
+
 export type Situation = {
+    beat: number
     position: [number, number]
+    facing: Angle
+    portFinSpeed: number
+    starboardFinSpeed: number
     velocity: Velocity
     health: number
     energy: number
     torpedoes: number
-    recentlyScannedEnemies: EnemyShark[]
+    memory: Option<Memory>,
     arenaSettings: ArenaSettings
 };
 
@@ -34,7 +48,9 @@ export type SharkKnowledge = {
     situation: Situation,
 } & Api;
 
-/** The shark doesn't know the situation when it's a newborn. */
+/** 
+ * The shark doesn't know the situation when it's a newborn.
+ */
 export type BabySharkKnowledge = Omit<SharkKnowledge, 'situation'>;
 
 export type SharkSee = (knowledge: SharkKnowledge | BabySharkKnowledge) => Observable<Situation>;
